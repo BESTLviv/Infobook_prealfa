@@ -3,9 +3,16 @@ package main
 import (
 	"gopkg.in/telegram-bot-api.v4"
 	"log"
-	"io/ioutil"
-	"strings"
+	"os"
+	"encoding/csv"
+	"bufio"
+	"io"
 )
+
+type Person struct {
+	lastname string
+	info     string
+}
 
 func check(e error) {
 	if e != nil {
@@ -15,15 +22,28 @@ func check(e error) {
 
 func main() {
 	// считываем в один стринг весь файл и сплитим на слайсы
-	dat, err := ioutil.ReadFile("C:\\Users\\Chalyi\\Desktop\\BEST\\IT_dept\\infobot\\numbers")
+	dataCSV, err := os.Open("data.csv")
 	check(err)
-	premapinfo := strings.Fields(string(dat))
-
+	reader := csv.NewReader(bufio.NewReader(dataCSV))
+	var activemembers []Person
+	//зчитуємо дані в слайс структур
+	for {
+		line, error := reader.Read()
+		if error == io.EOF {
+			break
+		} else if error != nil {
+			log.Fatal(error)
+		}
+		activemembers = append(activemembers, Person{
+			lastname: line[0],
+			info:     line[1],
+		})
+	}
 	// заполняем мап
-	var mapmap map[string]string
-	mapmap=make(map[string]string)
-	for i := 0; i < len(premapinfo); i+=2 {
-		mapmap[premapinfo[i]] = premapinfo[i+1]
+	//var mapmap map[string]*Person
+	mapmap := make(map[string]*Person)
+	for i := 0; i < len(activemembers); i++ {
+		mapmap[activemembers[i].lastname] = &activemembers[i]
 	}
 	// подключаемся к боту с помощью токена
 	bot, err := tgbotapi.NewBotAPI("442632858:AAGT6aDU-axkUJIyQ1M6dmAwNustMGfcPEA")
@@ -60,12 +80,12 @@ func main() {
 			// в зависимости от команды - выводим имя из мапки или всю инфу
 			switch update.Message.Command() {
 			case "get":
-				reply := mapmap[update.Message.CommandArguments()]
+				reply := mapmap[update.Message.CommandArguments()].info
 				msg := tgbotapi.NewMessage(ChatID, reply)
 				bot.Send(msg)
 			case "all":
-				for i := 0; i < len(premapinfo); i+=2{
-					bot.Send(tgbotapi.NewMessage(ChatID,"Name: " + premapinfo[i]+"; Phone: "+premapinfo[i+1]))
+				for i := 0; i < len(activemembers); i++ {
+					bot.Send(tgbotapi.NewMessage(ChatID, "Name: "+activemembers[i].lastname+"; Phone: "+activemembers[i].info))
 				}
 			}
 
